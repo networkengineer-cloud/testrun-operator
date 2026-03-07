@@ -1,3 +1,5 @@
 .worktrees/
+bin/
+cover.out
 prompt.md
 .claude/

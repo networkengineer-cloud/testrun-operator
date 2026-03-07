@@ -1,0 +1,59 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+- apiGroups:
+  - batch
+  resources:
+  - cronjobs
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs/status
+  verbs:
+  - get
+- apiGroups:
+  - helm.toolkit.fluxcd.io
+  resources:
+  - helmreleases
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - kustomize.toolkit.fluxcd.io
+  resources:
+  - kustomizations
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - testing.testing.platform.io
+  resources:
+  - helmreleasetests
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - testing.testing.platform.io
+  resources:
+  - helmreleasetests/status
+  verbs:
+  - get
+  - patch
+  - update
