@@ -25,9 +25,8 @@ import (
 )
 
 func TestPostCommitStatusEmptySHA(t *testing.T) {
-	// When SHA is empty, PostCommitStatus should be a no-op (no error).
-	err := PostCommitStatus(context.Background(), "", "ctx", "success", "ok")
-	if err != nil {
+	p := &Poster{Token: "tok", Repo: "owner/repo"}
+	if err := p.PostCommitStatus(context.Background(), "", "ctx", "success", "ok"); err != nil {
 		t.Errorf("expected no error for empty SHA, got: %v", err)
 	}
 }
@@ -43,18 +42,15 @@ func TestPostCommitStatusSuccess(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	// Patch the API call to use our test server by temporarily overriding the
-	// URL-building logic via environment. We do this by constructing a custom
-	// request directly; since PostCommitStatus is a thin wrapper, we test the
-	// full path by redirecting http.DefaultClient via a transport shim.
-	origTransport := http.DefaultTransport
-	http.DefaultTransport = rewriteTransport{base: http.DefaultTransport, target: srv.URL}
-	defer func() { http.DefaultTransport = origTransport }()
+	p := &Poster{
+		Token: "test-token",
+		Repo:  "owner/repo",
+		HTTPClient: &http.Client{
+			Transport: rewriteTransport{base: http.DefaultTransport, target: srv.URL},
+		},
+	}
 
-	t.Setenv("GITHUB_TOKEN", "test-token")
-	t.Setenv("GITHUB_REPO", "owner/repo")
-
-	err := PostCommitStatus(context.Background(), "abc123", "helm-release-tests/mytest", "success", "passed")
+	err := p.PostCommitStatus(context.Background(), "abc123", "helm-release-tests/mytest", "success", "passed")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

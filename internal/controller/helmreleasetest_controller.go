@@ -48,7 +48,8 @@ const (
 // the parent HelmReleaseTest status on completion.
 type HelmReleaseTestReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme       *runtime.Scheme
+	GitHubPoster *github.Poster
 }
 
 // +kubebuilder:rbac:groups=testing.testing.platform.io,resources=helmreleasetests,verbs=get;list;watch
@@ -87,6 +88,11 @@ func (r *HelmReleaseTestReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	var hrt testingv1alpha1.HelmReleaseTest
 	if err := r.Get(ctx, client.ObjectKey{Name: hrtName, Namespace: hrtNamespace}, &hrt); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	// Already processed this Job — avoid redundant status patches and duplicate GitHub API calls.
+	if hrt.Status.LastRunJob == job.Name {
+		return ctrl.Result{}, nil
 	}
 
 	passed := job.Status.Succeeded > 0
@@ -146,7 +152,7 @@ func (r *HelmReleaseTestReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		ghState = "success"
 	}
 	ghCtx := fmt.Sprintf("helm-release-tests/%s", hrt.Name)
-	if err := github.PostCommitStatus(ctx, sha, ghCtx, ghState, condMsg); err != nil {
+	if err := r.GitHubPoster.PostCommitStatus(ctx, sha, ghCtx, ghState, condMsg); err != nil {
 		logger.Error(err, "Failed to post GitHub commit status")
 		// Non-fatal: status already patched.
 	}

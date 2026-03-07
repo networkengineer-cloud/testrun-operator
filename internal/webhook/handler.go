@@ -43,7 +43,6 @@ const (
 	labelSource = "testing.platform.io/source"
 	labelAppVal = "helm-release-test"
 
-	annotationHelmRelease       = "testing.platform.io/helmrelease"
 	annotationHelmReleaseTestNS = "testing.platform.io/helmreleasetest-namespace"
 
 	dedupWindow = 5 * time.Minute
@@ -72,6 +71,7 @@ type Handler struct {
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	logger := log.FromContext(r.Context())
 
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1 MiB
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		logger.Error(err, "Failed to read request body")
@@ -212,7 +212,6 @@ func (h *Handler) createJob(ctx context.Context, hrt *testingv1alpha1.HelmReleas
 				labelSource: hrt.Name,
 			},
 			Annotations: map[string]string{
-				annotationHelmRelease:       hrt.Spec.HelmReleaseRef.Name,
 				annotationHelmReleaseTestNS: hrt.Namespace,
 			},
 		},

@@ -71,10 +71,6 @@ type HelmReleaseTestStatus struct {
 	// lastCommitSHA is the commit SHA resolved from the Kustomization at the time of the last test run.
 	// +optional
 	LastCommitSHA string `json:"lastCommitSHA,omitempty"`
-
-	// lastTestedRevision is the HelmRelease revision that was last tested.
-	// +optional
-	LastTestedRevision string `json:"lastTestedRevision,omitempty"`
 }
 
 // +kubebuilder:object:root=true

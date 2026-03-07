@@ -186,10 +186,6 @@ spec:
                 description: lastRunTime is the time the most recent test Job completed.
                 format: date-time
                 type: string
-              lastTestedRevision:
-                description: lastTestedRevision is the HelmRelease revision that was
-                  last tested.
-                type: string
             type: object
         required:
         - spec

@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 )
@@ -38,24 +37,28 @@ type commitStatusPayload struct {
 	Context     string `json:"context"`
 }
 
+// Poster posts GitHub commit statuses. Token and Repo must be set before use.
+// HTTPClient is optional; nil falls back to http.DefaultClient.
+type Poster struct {
+	Token      string
+	Repo       string
+	HTTPClient *http.Client
+}
+
 // PostCommitStatus posts a GitHub commit status for the given SHA.
-// It reads GITHUB_TOKEN and GITHUB_REPO (format "owner/repo") from the environment.
-// If sha is empty, the call is skipped with a warning log.
-func PostCommitStatus(ctx context.Context, sha, contextName, state, description string) error {
+// If sha is empty the call is a no-op.
+func (p *Poster) PostCommitStatus(ctx context.Context, sha, contextName, state, description string) error {
 	if sha == "" {
-		// Log is handled by caller; no-op here.
 		return nil
 	}
 
-	token := os.Getenv("GITHUB_TOKEN")
-	repo := os.Getenv("GITHUB_REPO")
-	if token == "" || repo == "" {
-		return fmt.Errorf("GITHUB_TOKEN and GITHUB_REPO must be set")
+	if p.Token == "" || p.Repo == "" {
+		return fmt.Errorf("github Poster: Token and Repo must be set")
 	}
 
-	parts := strings.SplitN(repo, "/", 2)
+	parts := strings.SplitN(p.Repo, "/", 2)
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return fmt.Errorf("GITHUB_REPO must be in owner/repo format, got: %q", repo)
+		return fmt.Errorf("github Poster: Repo must be in owner/repo format, got: %q", p.Repo)
 	}
 	owner, repoName := parts[0], parts[1]
 
@@ -78,11 +81,16 @@ func PostCommitStatus(ctx context.Context, sha, contextName, state, description 
 	if err != nil {
 		return fmt.Errorf("building GitHub request: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Authorization", "Bearer "+p.Token)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/vnd.github+json")
 
-	resp, err := http.DefaultClient.Do(req)
+	hc := p.HTTPClient
+	if hc == nil {
+		hc = http.DefaultClient
+	}
+
+	resp, err := hc.Do(req)
 	if err != nil {
 		return fmt.Errorf("posting GitHub commit status: %w", err)
 	}

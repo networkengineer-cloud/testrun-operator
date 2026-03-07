@@ -17,10 +17,13 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"crypto/tls"
+	"errors"
 	"flag"
 	"net/http"
 	"os"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -38,6 +41,7 @@ import (
 
 	testingv1alpha1 "github.com/networkengineer-cloud/testrun-operator/api/v1alpha1"
 	"github.com/networkengineer-cloud/testrun-operator/internal/controller"
+	"github.com/networkengineer-cloud/testrun-operator/internal/github"
 	fluxwebhook "github.com/networkengineer-cloud/testrun-operator/internal/webhook"
 	// +kubebuilder:scaffold:imports
 )
@@ -52,6 +56,28 @@ func init() {
 
 	utilruntime.Must(testingv1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
+}
+
+// fluxWebhookRunnable wraps an http.Server as a controller-runtime Runnable so that
+// the webhook server participates in the manager's lifecycle and shuts down gracefully.
+type fluxWebhookRunnable struct {
+	srv *http.Server
+}
+
+func (r *fluxWebhookRunnable) Start(ctx context.Context) error {
+	setupLog.Info("Starting Flux webhook server", "addr", r.srv.Addr)
+	go func() {
+		<-ctx.Done()
+		shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := r.srv.Shutdown(shutCtx); err != nil {
+			setupLog.Error(err, "Error shutting down Flux webhook server")
+		}
+	}()
+	if err := r.srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+	return nil
 }
 
 // nolint:gocyclo
@@ -156,9 +182,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Read GitHub credentials once at startup and inject into the reconciler.
+	poster := &github.Poster{
+		Token: os.Getenv("GITHUB_TOKEN"),
+		Repo:  os.Getenv("GITHUB_REPO"),
+	}
+
 	if err := (&controller.HelmReleaseTestReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:       mgr.GetClient(),
+		Scheme:       mgr.GetScheme(),
+		GitHubPoster: poster,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "HelmReleaseTest")
 		os.Exit(1)
@@ -174,16 +207,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Start Flux webhook HTTP server in a goroutine.
+	// Register the Flux webhook server as a manager Runnable for graceful shutdown.
 	hmacSecret := []byte(os.Getenv("HMAC_SECRET"))
-	fluxMux := fluxwebhook.NewMux(mgr.GetClient(), hmacSecret)
-	go func() {
-		setupLog.Info("Starting Flux webhook server", "addr", fluxWebhookAddr)
-		if err := http.ListenAndServe(fluxWebhookAddr, fluxMux); err != nil {
-			setupLog.Error(err, "Flux webhook server failed")
-			os.Exit(1)
-		}
-	}()
+	fluxSrv := &http.Server{
+		Addr:    fluxWebhookAddr,
+		Handler: fluxwebhook.NewMux(mgr.GetClient(), hmacSecret),
+	}
+	if err := mgr.Add(&fluxWebhookRunnable{srv: fluxSrv}); err != nil {
+		setupLog.Error(err, "Failed to register Flux webhook server")
+		os.Exit(1)
+	}
 
 	setupLog.Info("Starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
