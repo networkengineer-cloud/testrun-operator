@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 )
 
@@ -54,8 +53,6 @@ func TestPostCommitStatusSuccess(t *testing.T) {
 
 	t.Setenv("GITHUB_TOKEN", "test-token")
 	t.Setenv("GITHUB_REPO", "owner/repo")
-	os.Setenv("GITHUB_TOKEN", "test-token")
-	os.Setenv("GITHUB_REPO", "owner/repo")
 
 	err := PostCommitStatus(context.Background(), "abc123", "helm-release-tests/mytest", "success", "passed")
 	if err != nil {

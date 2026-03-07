@@ -177,7 +177,7 @@ func (h *Handler) isDuplicate(ctx context.Context, hrt *testingv1alpha1.HelmRele
 
 	cutoff := time.Now().Add(-dedupWindow)
 	for _, job := range jobList.Items {
-		if job.CreationTimestamp.Time.After(cutoff) {
+		if job.CreationTimestamp.After(cutoff) {
 			return true
 		}
 	}

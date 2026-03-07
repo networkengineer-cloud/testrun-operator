@@ -86,7 +86,7 @@ func PostCommitStatus(ctx context.Context, sha, contextName, state, description 
 	if err != nil {
 		return fmt.Errorf("posting GitHub commit status: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		respBody, _ := io.ReadAll(resp.Body)

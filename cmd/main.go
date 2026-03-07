@@ -68,7 +68,8 @@ func main() {
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8081", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8081 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8082", "The address the probe endpoint binds to.")
-	flag.StringVar(&fluxWebhookAddr, "flux-webhook-bind-address", ":8080", "The address the Flux webhook endpoint binds to.")
+	flag.StringVar(&fluxWebhookAddr, "flux-webhook-bind-address", ":8080",
+		"The address the Flux webhook endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", true,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
