@@ -74,7 +74,8 @@ jobs:
 
       - name: Set appVersion to commit SHA
         run: |
-          sed -i "s/^appVersion:.*/appVersion: sha-${{ github.sha }}/" chart/Chart.yaml
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          sed -i "s/^appVersion:.*/appVersion: sha-${SHORT_SHA}/" chart/Chart.yaml
 
       - name: Package chart
         run: helm package chart/
