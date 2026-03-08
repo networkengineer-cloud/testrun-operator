@@ -1,0 +1,23 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: my-app-tests
+  namespace: flux-system
+spec:
+  # Suspend the CronJob — the operator copies its jobTemplate to create test Jobs.
+  suspend: true
+  # A non-meaningful schedule; the CronJob is never triggered directly.
+  schedule: "0 0 31 2 *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: test
+              image: curlimages/curl:latest
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  curl -sf http://my-app.flux-system.svc.cluster.local/healthz

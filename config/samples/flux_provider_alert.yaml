@@ -1,0 +1,39 @@
+# Flux Provider pointing to this operator's webhook endpoint.
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Provider
+metadata:
+  name: helm-release-test-operator
+  namespace: flux-system
+spec:
+  type: generic-hmac
+  address: http://testrun-operator.testrun-operator.svc.cluster.local:8080/trigger
+  secretRef:
+    name: helm-release-test-operator-hmac
+---
+# Secret containing the HMAC key shared between Flux and the operator.
+# Create with: kubectl create secret generic helm-release-test-operator-hmac \
+#   --from-literal=token=<your-hmac-secret> -n flux-system
+apiVersion: v1
+kind: Secret
+metadata:
+  name: helm-release-test-operator-hmac
+  namespace: flux-system
+type: Opaque
+stringData:
+  token: "changeme"
+---
+# Flux Alert that triggers on HelmRelease upgrade events.
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Alert
+metadata:
+  name: helm-release-test-trigger
+  namespace: flux-system
+spec:
+  providerRef:
+    name: helm-release-test-operator
+  eventSeverity: info
+  eventSources:
+    - kind: HelmRelease
+      name: "*"
+  inclusionList:
+    - "upgrade succeeded"

@@ -1,0 +1,6 @@
+## Append samples of your project ##
+resources:
+- testing_v1alpha1_helmreleasetest.yaml
+- suspended_cronjob.yaml
+- flux_provider_alert.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples

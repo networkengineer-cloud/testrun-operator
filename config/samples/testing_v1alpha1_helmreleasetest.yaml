@@ -1,0 +1,15 @@
+apiVersion: testing.testing.platform.io/v1alpha1
+kind: HelmReleaseTest
+metadata:
+  name: my-app-test
+  namespace: flux-system
+spec:
+  helmReleaseRef:
+    name: my-app
+    namespace: flux-system
+  kustomizationRef:
+    name: my-app
+    namespace: flux-system
+  cronJobRef:
+    name: my-app-tests
+    namespace: flux-system
