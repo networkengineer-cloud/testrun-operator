@@ -5,6 +5,8 @@ image:
   pullPolicy: IfNotPresent
   tag: ""  # defaults to appVersion
 
+imagePullSecrets: []
+
 secretName: testrun-operator-secrets
 
 resources:
