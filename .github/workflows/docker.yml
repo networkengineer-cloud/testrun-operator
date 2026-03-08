@@ -72,9 +72,10 @@ jobs:
       - name: Log in to GHCR (Helm)
         run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io --username ${{ github.actor }} --password-stdin
 
-      - name: Set appVersion to commit SHA
+      - name: Set chart version and appVersion
         run: |
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          sed -i "s/^version:.*/version: 0.1.${{ github.run_number }}/" chart/Chart.yaml
           sed -i "s/^appVersion:.*/appVersion: sha-${SHORT_SHA}/" chart/Chart.yaml
 
       - name: Package chart
