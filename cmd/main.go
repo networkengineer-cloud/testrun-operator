@@ -183,9 +183,14 @@ func main() {
 	}
 
 	// Read GitHub credentials once at startup and inject into the reconciler.
+	ghToken := os.Getenv("GITHUB_TOKEN")
+	ghRepo := os.Getenv("GITHUB_REPO")
+	setupLog.Info("GitHub configuration",
+		"token-configured", ghToken != "",
+		"repo", ghRepo)
 	poster := &github.Poster{
-		Token: os.Getenv("GITHUB_TOKEN"),
-		Repo:  os.Getenv("GITHUB_REPO"),
+		Token: ghToken,
+		Repo:  ghRepo,
 	}
 
 	if err := (&controller.HelmReleaseTestReconciler{
@@ -209,6 +214,11 @@ func main() {
 
 	// Register the Flux webhook server as a manager Runnable for graceful shutdown.
 	hmacSecret := []byte(os.Getenv("HMAC_SECRET"))
+	if len(hmacSecret) == 0 {
+		setupLog.Info("WARNING: HMAC_SECRET is empty, webhook HMAC validation is disabled")
+	} else {
+		setupLog.Info("HMAC secret configured", "secret-length", len(hmacSecret))
+	}
 	fluxSrv := &http.Server{
 		Addr:    fluxWebhookAddr,
 		Handler: fluxwebhook.NewMux(mgr.GetClient(), hmacSecret),

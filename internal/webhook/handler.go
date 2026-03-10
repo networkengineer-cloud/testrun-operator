@@ -71,6 +71,12 @@ type Handler struct {
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	logger := log.FromContext(r.Context())
 
+	logger.V(1).Info("Webhook request received",
+		"method", r.Method,
+		"path", r.URL.Path,
+		"content-length", r.ContentLength,
+		"remote-addr", r.RemoteAddr)
+
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1 MiB
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -79,21 +85,31 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !h.validateSignature(r.Header.Get("X-Signature"), body) {
-		logger.Info("Invalid HMAC signature, ignoring request")
+	sigHeader := r.Header.Get("X-Signature")
+	if !h.validateSignature(sigHeader, body) {
+		logger.Info("Invalid HMAC signature, ignoring request",
+			"has-signature-header", sigHeader != "",
+			"signature-length", len(sigHeader),
+			"body-length", len(body))
 		w.WriteHeader(http.StatusAccepted)
 		return
 	}
 
 	var event FluxEvent
 	if err := json.Unmarshal(body, &event); err != nil {
-		logger.Error(err, "Failed to parse Flux event JSON")
+		logger.Error(err, "Failed to parse Flux event JSON",
+			"body-length", len(body))
 		w.WriteHeader(http.StatusAccepted)
 		return
 	}
 
 	if !strings.EqualFold(event.Reason, "upgrade succeeded") ||
 		event.InvolvedObject.Kind != "HelmRelease" {
+		logger.V(1).Info("Ignoring non-upgrade event",
+			"reason", event.Reason,
+			"kind", event.InvolvedObject.Kind,
+			"name", event.InvolvedObject.Name,
+			"namespace", event.InvolvedObject.Namespace)
 		w.WriteHeader(http.StatusAccepted)
 		return
 	}
@@ -111,6 +127,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) validateSignature(header string, body []byte) bool {
 	if len(h.HMACSecret) == 0 {
+		log.Log.V(1).Info("HMAC validation bypassed (no secret configured)")
 		return true
 	}
 	const prefix = "sha256="

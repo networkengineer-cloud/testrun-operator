@@ -64,6 +64,8 @@ type HelmReleaseTestReconciler struct {
 func (r *HelmReleaseTestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := ctrl.LoggerFrom(ctx)
 
+	logger.V(1).Info("Reconciling Job", "job", req.NamespacedName)
+
 	var job batchv1.Job
 	if err := r.Get(ctx, req.NamespacedName, &job); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -71,6 +73,7 @@ func (r *HelmReleaseTestReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	// Skip Jobs that haven't completed yet.
 	if job.Status.CompletionTime == nil {
+		logger.V(1).Info("Job not yet completed, skipping", "job", job.Name)
 		return ctrl.Result{}, nil
 	}
 
@@ -113,11 +116,6 @@ func (r *HelmReleaseTestReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		// Non-fatal: continue to update status and skip GitHub report.
 	}
 
-	if sha == "" {
-		logger.Info("Commit SHA unavailable, skipping GitHub status post",
-			"helmreleasetest", hrt.Name)
-	}
-
 	// Update HelmReleaseTest status.
 	now := metav1.Now()
 	patch := client.MergeFrom(hrt.DeepCopy())
@@ -147,14 +145,19 @@ func (r *HelmReleaseTestReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	// Post GitHub commit status.
-	ghState := "failure"
-	if passed {
-		ghState = "success"
-	}
-	ghCtx := fmt.Sprintf("helm-release-tests/%s", hrt.Name)
-	if err := r.GitHubPoster.PostCommitStatus(ctx, sha, ghCtx, ghState, condMsg); err != nil {
-		logger.Error(err, "Failed to post GitHub commit status")
-		// Non-fatal: status already patched.
+	if sha == "" {
+		logger.Info("Commit SHA unavailable, skipping GitHub status post",
+			"helmreleasetest", hrt.Name)
+	} else {
+		ghState := "failure"
+		if passed {
+			ghState = "success"
+		}
+		ghCtx := fmt.Sprintf("helm-release-tests/%s", hrt.Name)
+		if err := r.GitHubPoster.PostCommitStatus(ctx, sha, ghCtx, ghState, condMsg); err != nil {
+			logger.Error(err, "Failed to post GitHub commit status")
+			// Non-fatal: status already patched.
+		}
 	}
 
 	logger.Info("Processed test Job",
